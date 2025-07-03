@@ -14,13 +14,24 @@ DISK_SIZE=${DISK_SIZE:-10G}
 build_busybox() {
     echo "📦 编译 BusyBox..."
     [ ! -d "$BUSYBOX_DIR" ] && git clone https://git.busybox.net/busybox "$BUSYBOX_DIR"
+
     pushd "$BUSYBOX_DIR" >/dev/null
+
     make distclean
     make defconfig
-    sed -i 's/.*CONFIG_STATIC.*/CONFIG_STATIC=y/' .config
-    sed -i 's/^CONFIG_TC=y/# CONFIG_TC is not set/' .config
+
+    # 修改配置：开启静态链接、禁用 tc、不 strip、添加调试信息
+    sed -i '/^#\? *CONFIG_STATIC[ =]/c\CONFIG_STATIC=y' .config
+    sed -i '/^CONFIG_TC=y/c\# CONFIG_TC is not set' .config
+    sed -i '/^#\? *CONFIG_STRIP[ =]/c\# CONFIG_STRIP is not set' .config
+    sed -i '/^#\? *CONFIG_DEBUG[ =]/c\CONFIG_DEBUG=y' .config
+
+    # 如果你想保险起见再 make menuconfig 保存一遍（可选）
+    # make menuconfig
+
     make -j$(nproc)
     make CONFIG_PREFIX="$ROOTFS_DIR" install
+
     popd >/dev/null
 }
 
