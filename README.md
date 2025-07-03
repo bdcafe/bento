@@ -1,0 +1,7 @@
+# bento
+
+A personal collection of scripts and tools for Linux development, debugging, and automation.
+
+This repo serves as a toolbox — collecting various utilities, build helpers, and quick hacks used in day-to-day system-level work.
+
+> Like a bento: simple, modular, and just enough.
