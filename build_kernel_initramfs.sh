@@ -2,7 +2,6 @@
 set -e
 
 # ====== 配置默认路径 ======
-LINUX_DIR=${LINUX_DIR:-./linux}
 BUSYBOX_DIR=${BUSYBOX_DIR:-./busybox}
 ROOTFS_DIR=${ROOTFS_DIR:-./rootfs}
 OUTPUT_INITRAMFS=${OUTPUT_INITRAMFS:-./initramfs.cpio.gz}
@@ -39,36 +38,49 @@ build_busybox() {
 build_rootfs() {
     echo "📂 构建 rootfs..."
     rm -rf "$ROOTFS_DIR"
-    mkdir -p "$ROOTFS_DIR"/{dev,proc,sys}
+    mkdir -p "$ROOTFS_DIR"/{dev,proc,sys,bin}
 
     sudo mknod -m 600 "$ROOTFS_DIR/dev/console" c 5 1
-    sudo mknod -m 666 "$ROOTFS_DIR/dev/null" c 1 3
-    sudo mknod -m 666 "$ROOTFS_DIR/dev/tty" c 5 0
-    sudo mknod -m 666 "$ROOTFS_DIR/dev/random" c 1 8
 
+    # 复制 busybox 可执行文件
+    cp busybox/busybox "$ROOTFS_DIR/bin/"
+    chmod +x "$ROOTFS_DIR/bin/busybox"
+
+    # 创建 /bin/sh 指向 busybox
+    ln -sf busybox "$ROOTFS_DIR/bin/sh"
+
+    # 写入 init 脚本
     cat << 'EOF' > "$ROOTFS_DIR/init"
 #!/bin/sh
-mount -t proc none /proc
-mount -t sysfs none /sys
+
+export PATH=/bin:/sbin:/usr/bin:/usr/sbin
+
+mount -t devtmpfs devtmpfs /dev
+mount -t proc proc /proc
+mount -t sysfs sysfs /sys
+
 echo "✅ Init started"
-/bin/sh
+echo "生成 busybox 软链接..."
+/bin/busybox --install -s /bin
+
+exec /bin/sh
 EOF
+
     chmod +x "$ROOTFS_DIR/init"
 }
 
 # ====== 打包 initramfs ======
 pack_initramfs() {
     echo "📦 打包 initramfs..."
-    pushd "$ROOTFS_DIR" >/dev/null
-    find . -print0 | cpio --null -ov --format=newc | gzip -9 > "$OUTPUT_INITRAMFS"
+    pushd "$(dirname "$ROOTFS_DIR")" >/dev/null
+    find "$(basename "$ROOTFS_DIR")" -print0 | \
+        cpio --null -ov --format=newc | gzip -9 > "$OUTPUT_INITRAMFS"
     popd >/dev/null
 }
 
 # ====== 编译内核 ======
 build_kernel() {
     echo "🐧 编译 Linux 内核..."
-    [ ! -d "$LINUX_DIR" ] && git clone --depth=1 https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git "$LINUX_DIR"
-    pushd "$LINUX_DIR" >/dev/null
     make mrproper
     make defconfig
     scripts/config --disable DEBUG_INFO_NONE
