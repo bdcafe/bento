@@ -1,6 +1,38 @@
 #!/bin/bash
 set -e
 
+: <<'LOGIC_DIAGRAM'
+
+逻辑图（Linux Bridge 二层桥接示例）:
+
+       +----------------------+                      +----------------------+
+       |  Network Namespace   |                      |  Network Namespace   |
+       |         nsA          |                      |         nsB          |
+       |  +--------------+    |                      |   +--------------+   |
+       |  |  veth1 (IP)  |<===+=== veth pair ===+===>|   |  veth2 (IP)  |   |
+       |  +--------------+    |                      |   +--------------+   |
+       +----------------------+                      +----------------------+
+                 |                                             |
+                 |                                             |
+              veth1-br                                      veth2-br
+                 |                                             |
+                 +----------------------+----------------------+
+                                        |
+                              Linux Bridge br0 (no VLAN filtering)
+                                        |
+                  All ports are in the same broadcast domain
+                                        |
+                          (ping between nsA and nsB will succeed)
+
+说明：
+- veth1 <-> veth1-br 是一对虚拟以太网设备
+- veth2 <-> veth2-br 同理
+- veth1-br 和 veth2-br 都是 br0 的端口，未启用 VLAN 过滤
+- 所有端口处于同一二层网络，互相通信正常
+
+LOGIC_DIAGRAM
+
+
 # 分隔打印函数，中文也居中
 print_section() {
     local msg="$1"

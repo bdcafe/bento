@@ -1,6 +1,40 @@
 #!/bin/bash
 set -e
 
+: <<'LOGIC_DIAGRAM'
+
+逻辑图（Linux Bridge + VLAN untagged 示例）:
+
+       +----------------------+                    +----------------------+
+       |  Network Namespace   |                    |  Network Namespace   |
+       |         nsA          |                    |         nsB          |
+       |  +--------------+    |                    |   +--------------+   |
+       |  |  veth1 (IP)  |<===+===veth pair===+===>|   |  veth2 (IP)  |   |
+       |  +--------------+    |                    |   +--------------+   |
+       +----------------------+                    +----------------------+
+                 |                                             |
+                 |                                             |
+              veth1-br                                      veth2-br
+           (untagged VLAN 10)                           (untagged VLAN 20)
+                 |                                             |
+                 +----------------------+----------------------+
+                                        |
+                              Linux Bridge br0 (vlan_filtering=1)
+                                        |
+                 VLAN 10 and VLAN 20 are isolated — no communication
+                                        |
+                          (ping between nsA and nsB will fail)
+
+说明：
+- veth1 <-> veth1-br 是一对虚拟以太网设备
+- veth2 <-> veth2-br 同理
+- veth1-br 和 veth2-br 都是 br0 的端口，且启用了 VLAN 过滤
+- veth1-br 的 VLAN 10 设置为 untagged，veth2-br 的 VLAN 20 设置为 untagged
+- 两个 VLAN 互不通信，体现二层交换机的 VLAN 隔离功能
+
+LOGIC_DIAGRAM
+
+
 # 分隔输出函数
 print_section() {
     local msg="$1"
